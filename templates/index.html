@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Knowledge Assistant</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-badge">AI</div>
+          <div>
+            <div>Knowledge Assistant</div>
+            <div class="status-pill">Wikipedia • News • Chat</div>
+          </div>
+        </div>
+
+        <div class="sidebar-card">
+          <button id="clearBtn" class="btn" type="button">Clear Chat</button>
+        </div>
+
+        <div class="sidebar-card">
+          <strong>Recent prompts</strong>
+          <div id="historyList" class="history-list"></div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <strong>AI Knowledge Assistant</strong>
+            <div id="status" class="status-pill">Ready for your next question</div>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button id="exportBtn" class="btn" type="button">Export</button>
+            <button id="themeToggle" class="btn" type="button">Theme</button>
+          </div>
+        </header>
+
+        <section id="chatArea" class="chat-area"></section>
+
+        <footer class="composer">
+          <textarea id="messageInput" rows="1" placeholder="Ask about Wikipedia, news, or anything else..."></textarea>
+          <button id="sendBtn" class="btn" type="button">Send</button>
+        </footer>
+      </main>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <script src="/static/js/app.js"></script>
+  </body>
+</html>
