@@ -37,6 +37,24 @@ function renderMessage(message) {
   const formatted = escapeHtml(message.content).replace(/\n/g, '<br>');
   bubble.innerHTML = formatted.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
   wrap.appendChild(bubble);
+  
+  // Add voice play button for assistant messages
+  if (message.role === 'assistant') {
+    const voiceContainer = document.createElement('div');
+    voiceContainer.className = 'voice-controls';
+    const playBtn = document.createElement('button');
+    playBtn.className = 'btn-voice-play';
+    playBtn.innerHTML = '🔊';
+    playBtn.title = 'Play voice';
+    playBtn.addEventListener('click', () => {
+      playVoiceOutput(message.content);
+      playBtn.classList.toggle('playing');
+    });
+    voiceContainer.appendChild(playBtn);
+    bubble.appendChild(voiceContainer);
+  }
+  
+  wrap.appendChild(bubble);
   const meta = document.createElement('div');
   meta.className = 'meta-row';
   meta.innerHTML = `<span>${message.timestamp || ''}</span><span class="badge">${message.source || 'LLM'}</span>`;
@@ -63,6 +81,11 @@ function addMessage(role, text, source = 'LLM', references = [], timestamp = new
   messages.push(item);
   renderMessage(item);
   renderHistory();
+  
+  // Auto-play voice for assistant messages if enabled
+  if (role === 'assistant' && voiceManager) {
+    voiceManager.autoPlayMessage(text);
+  }
 }
 
 function setTyping(state) {
