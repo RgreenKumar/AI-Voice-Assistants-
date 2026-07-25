@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Knowledge Assistant</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-badge">AI</div>
+          <div>
+            <div>Knowledge Assistant</div>
+            <div class="status-pill">Wikipedia • News • Chat</div>
+          </div>
+        </div>
+
+        <div class="sidebar-card">
+          <button id="clearBtn" class="btn" type="button">Clear Chat</button>
+        </div>
+
+        <div class="sidebar-card">
+          <strong>Voice Settings</strong>
+          <label class="checkbox-label">
+            <input type="checkbox" id="voiceOutputToggle" checked />
+            <span>Voice Output</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="autoPlayVoiceToggle" />
+            <span>Auto-play Voice</span>
+          </label>
+        </div>
+
+        <div class="sidebar-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
+            <strong>Chat history</strong>
+            <button id="newChatBtn" class="btn btn-secondary" type="button">New chat</button>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <strong>AI Knowledge Assistant</strong>
+            <div id="status" class="status-pill">Ready for your next question</div>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button id="exportBtn" class="btn" type="button">Export</button>
+            <button id="themeToggle" class="btn" type="button">Theme</button>
+          </div>
+        </header>
+
+        <section id="chatArea" class="chat-area"></section>
+
+        <footer class="composer">
+          <div class="input-container">
+            <textarea id="messageInput" rows="1" placeholder="Ask about Wikipedia, news, or anything else..."></textarea>
+            <div class="voice-controls">
+              <button id="voiceInputBtn" class="btn btn-voice" type="button" title="Click to start voice input (Ctrl+Shift+V)">
+                🎤
+              </button>
+              <div id="recordingIndicator" class="recording-indicator" style="display: none;">
+                <span class="pulse"></span>
+                Recording...
+              </div>
+            </div>
+          </div>
+          <button id="sendBtn" class="btn" type="button">Send</button>
+        </footer>
+
+        <audio id="voiceOutput" style="display: none;"></audio>
+      </main>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <script src="/static/js/voice.js"></script>
+    <script src="/static/js/app.js"></script>
+  </body>
+</html>
