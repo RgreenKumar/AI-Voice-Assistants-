@@ -4,7 +4,9 @@ const status = document.getElementById('status');
 const historyList = document.getElementById('historyList');
 const themeToggle = document.getElementById('themeToggle');
 let messages = [];
+let activeConversationId = null;
 let isTyping = false;
+let historyEntries = [];
 
 function showToast(message) {
   const toast = document.getElementById('toast');
@@ -15,18 +17,7 @@ function showToast(message) {
 }
 
 function escapeHtml(value) {
-  return value.replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-}
-
-function renderHistory() {
-  historyList.innerHTML = '';
-  const userMessages = messages.filter((m) => m.role === 'user').slice(-6);
-  userMessages.forEach((m) => {
-    const item = document.createElement('div');
-    item.className = 'history-item';
-    item.textContent = m.content;
-    historyList.appendChild(item);
-  });
+  return String(value || '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 }
 
 function renderMessage(message) {
@@ -37,8 +28,7 @@ function renderMessage(message) {
   const formatted = escapeHtml(message.content).replace(/\n/g, '<br>');
   bubble.innerHTML = formatted.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
   wrap.appendChild(bubble);
-  
-  // Add voice play button for assistant messages
+
   if (message.role === 'assistant') {
     const voiceContainer = document.createElement('div');
     voiceContainer.className = 'voice-controls';
@@ -53,8 +43,7 @@ function renderMessage(message) {
     voiceContainer.appendChild(playBtn);
     bubble.appendChild(voiceContainer);
   }
-  
-  wrap.appendChild(bubble);
+
   const meta = document.createElement('div');
   meta.className = 'meta-row';
   meta.innerHTML = `<span>${message.timestamp || ''}</span><span class="badge">${message.source || 'LLM'}</span>`;
@@ -76,16 +65,31 @@ function renderMessage(message) {
   chatArea.scrollTop = chatArea.scrollHeight;
 }
 
-function addMessage(role, text, source = 'LLM', references = [], timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) {
-  const item = { role, content: text, source, references, timestamp };
-  messages.push(item);
-  renderMessage(item);
-  renderHistory();
-  
-  // Auto-play voice for assistant messages if enabled
-  if (role === 'assistant' && voiceManager) {
-    voiceManager.autoPlayMessage(text);
+function renderConversationMessages(conversationMessages) {
+  messages = conversationMessages || [];
+  chatArea.innerHTML = '';
+  messages.forEach(renderMessage);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function renderHistory() {
+  historyList.innerHTML = '';
+  if (!historyEntries.length) {
+    const empty = document.createElement('div');
+    empty.className = 'history-preview';
+    empty.textContent = 'No saved chats yet';
+    historyList.appendChild(empty);
+    return;
   }
+
+  historyEntries.forEach((conversation) => {
+    const item = document.createElement('button');
+    item.className = `history-item${activeConversationId === conversation.id ? ' active' : ''}`;
+    item.type = 'button';
+    item.innerHTML = `<span class="history-title">${escapeHtml(conversation.title || 'New chat')}</span><span class="history-preview">${escapeHtml(conversation.preview || 'No messages yet')}</span>`;
+    item.addEventListener('click', () => loadConversation(conversation.id));
+    historyList.appendChild(item);
+  });
 }
 
 function setTyping(state) {
@@ -104,35 +108,86 @@ function setTyping(state) {
   }
 }
 
-function clearChat() {
-  messages = [];
+function showWelcomeMessage() {
   chatArea.innerHTML = '';
-  renderHistory();
+  const wrap = document.createElement('div');
+  wrap.className = 'message assistant';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = 'Hello 👋 I am your AI Knowledge Assistant. I can help with Wikipedia, latest news, and general conversation.';
+  wrap.appendChild(bubble);
+  chatArea.appendChild(wrap);
+}
+
+function clearCurrentChat() {
+  messages = [];
+  activeConversationId = null;
+  chatArea.innerHTML = '';
+  showWelcomeMessage();
+}
+
+async function loadHistory() {
+  try {
+    const response = await fetch('/history');
+    const data = await response.json();
+    if (data.success) {
+      historyEntries = data.history || [];
+      renderHistory();
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function loadConversation(conversationId) {
+  try {
+    const response = await fetch(`/conversation/${conversationId}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Conversation not found');
+    activeConversationId = conversationId;
+    renderConversationMessages(data.conversation?.messages || []);
+    status.textContent = 'Loaded previous chat';
+    await loadHistory();
+  } catch (error) {
+    showToast('Unable to load that chat');
+  }
 }
 
 async function sendMessage() {
   const text = input.value.trim();
   if (!text || isTyping) return;
   input.value = '';
-  addMessage('user', text);
+
+  const tempMessage = { role: 'user', content: text, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), source: 'You' };
+  renderConversationMessages([...messages, tempMessage]);
   setTyping(true);
+
   try {
     const response = await fetch('/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text })
+      body: JSON.stringify({ message: text, conversation_id: activeConversationId })
     });
     const data = await response.json();
     setTyping(false);
     if (data.success) {
-      addMessage('assistant', data.content || data.response, data.source, data.references || []);
+      activeConversationId = data.conversation_id || activeConversationId;
+      renderConversationMessages(data.conversation?.messages || [...messages]);
       status.textContent = `Source: ${data.source || 'LLM'}`;
+      await loadHistory();
+      if (voiceManager) {
+        voiceManager.autoPlayMessage(data.content || '');
+      }
     } else {
-      addMessage('assistant', data.error || 'Something went wrong.');
+      messages = messages.filter((item) => item !== tempMessage);
+      renderConversationMessages(messages);
+      showToast(data.error || 'Something went wrong.');
     }
   } catch (error) {
     setTyping(false);
-    addMessage('assistant', 'Network error. Please try again.');
+    messages = messages.filter((item) => item !== tempMessage);
+    renderConversationMessages(messages);
+    showToast('Network error. Please try again.');
   }
 }
 
@@ -151,9 +206,20 @@ input.addEventListener('keydown', (event) => {
 
 document.getElementById('sendBtn').addEventListener('click', sendMessage);
 document.getElementById('clearBtn').addEventListener('click', async () => {
-  clearChat();
-  await fetch('/clear', { method: 'POST' });
+  const conversationIdToClear = activeConversationId;
+  clearCurrentChat();
+  await fetch('/clear', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ conversation_id: conversationIdToClear })
+  });
+  activeConversationId = null;
+  await loadHistory();
   showToast('Chat cleared');
+});
+document.getElementById('newChatBtn').addEventListener('click', () => {
+  clearCurrentChat();
+  loadHistory();
 });
 themeToggle.addEventListener('click', toggleTheme);
 
@@ -166,4 +232,5 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
 const savedTheme = localStorage.getItem('theme');
 if (savedTheme === 'light') document.body.classList.add('light');
 
-addMessage('assistant', 'Hello 👋 I am your AI Knowledge Assistant. I can help with Wikipedia, latest news, and general conversation.');
+showWelcomeMessage();
+loadHistory();

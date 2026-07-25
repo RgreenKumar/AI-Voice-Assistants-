@@ -74,3 +74,61 @@ def test_fetch_web_search_context_returns_no_api_key_message(monkeypatch):
 
     assert 'No web search API key is configured' in message
     assert references == []
+
+
+def test_starts_a_new_conversation_when_no_conversation_id_is_provided(monkeypatch):
+    service = ChatbotService()
+    monkeypatch.setattr('services.chatbot_service.generate_llm_response', lambda *args: 'Reply')
+
+    result = service.handle_message('Hello there')
+
+    assert result['conversation_id']
+    assert result['title'] == 'Hello there'
+    conversation = service.get_conversation(result['conversation_id'])
+    assert len(conversation['messages']) == 2
+
+
+def test_reuses_existing_conversation_when_conversation_id_is_provided(monkeypatch):
+    service = ChatbotService()
+    monkeypatch.setattr('services.chatbot_service.generate_llm_response', lambda *args: 'Reply')
+
+    first = service.handle_message('What is AI?')
+    second = service.handle_message('Tell me more', conversation_id=first['conversation_id'])
+
+    assert second['conversation_id'] == first['conversation_id']
+    conversation = service.get_conversation(first['conversation_id'])
+    assert len(conversation['messages']) == 4
+    assert conversation['messages'][0]['content'] == 'What is AI?'
+    assert conversation['messages'][2]['content'] == 'Tell me more'
+
+
+def test_persists_conversations_via_database_service(monkeypatch):
+    class FakeDatabaseService:
+        def __init__(self):
+            self.saved_conversations = []
+
+        def save_conversation(self, conversation):
+            self.saved_conversations.append(conversation)
+            return conversation
+
+        def get_conversation(self, conversation_id):
+            return None
+
+        def list_conversations(self):
+            return []
+
+        def delete_conversation(self, conversation_id):
+            return True
+
+        def clear_all_conversations(self):
+            return True
+
+    db_service = FakeDatabaseService()
+    service = ChatbotService(db_service=db_service)
+    monkeypatch.setattr('services.chatbot_service.generate_llm_response', lambda *args: 'Reply')
+
+    result = service.handle_message('Store this in MongoDB')
+
+    assert result['conversation_id']
+    assert len(db_service.saved_conversations) == 1
+    assert db_service.saved_conversations[0]['messages'][0]['content'] == 'Store this in MongoDB'

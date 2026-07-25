@@ -31,12 +31,13 @@ def index():
 def chat():
     data = request.get_json(silent=True) or {}
     message = (data.get('message') or '').strip()
+    conversation_id = (data.get('conversation_id') or '').strip() or None
 
     if not message:
         return jsonify({'success': False, 'error': 'Message is required'}), 400
 
     try:
-        result = chatbot_service.handle_message(message)
+        result = chatbot_service.handle_message(message, conversation_id=conversation_id)
         return jsonify({'success': True, **result})
     except Exception as exc:
         return jsonify({'success': False, 'error': str(exc)}), 500
@@ -44,13 +45,26 @@ def chat():
 
 @app.route('/clear', methods=['POST'])
 def clear_chat():
-    chatbot_service.clear_history()
-    return jsonify({'success': True, 'history': []})
+    data = request.get_json(silent=True) or {}
+    conversation_id = (data.get('conversation_id') or '').strip() or None
+    if conversation_id:
+        chatbot_service.clear_conversation(conversation_id)
+    else:
+        chatbot_service.clear_history()
+    return jsonify({'success': True, 'history': chatbot_service.get_history()})
 
 
 @app.route('/history')
 def history():
     return jsonify({'success': True, 'history': chatbot_service.get_history()})
+
+
+@app.route('/conversation/<conversation_id>')
+def conversation(conversation_id):
+    conversation = chatbot_service.get_conversation(conversation_id)
+    if conversation is None:
+        return jsonify({'success': False, 'error': 'Conversation not found'}), 404
+    return jsonify({'success': True, 'conversation': conversation})
 
 
 @app.route('/export/txt', methods=['POST'])
