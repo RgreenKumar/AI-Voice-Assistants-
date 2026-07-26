@@ -47,6 +47,21 @@ class ChatbotService:
                 self.db_service = MongoDBService()
             except Exception:
                 self.db_service = None
+        # If we have a DB service, preload existing conversations into memory
+        if self.db_service:
+            try:
+                conversations = self.db_service.list_conversations() or []
+                # DB returns newest-first; store oldest->newest in conversation_order
+                for conv in reversed(conversations):
+                    cid = conv.get('id')
+                    if not cid:
+                        continue
+                    self.conversations[cid] = conv
+                    if cid not in self.conversation_order:
+                        self.conversation_order.append(cid)
+            except Exception:
+                # If DB read fails, continue with empty in-memory state
+                pass
 
     def _create_conversation(self, title: str | None = None):
         conversation_id = str(uuid.uuid4())
