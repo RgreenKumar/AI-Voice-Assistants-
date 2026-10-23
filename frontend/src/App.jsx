@@ -70,7 +70,7 @@ function SourceCards({ sources = [] }) {
   );
 }
 
-function MessageBubble({ message, userInitial }) {
+function MessageBubble({ message, userInitial, onSpeak }) {
   const isAssistant = message.role === "assistant";
   const showSourceCards = isAssistant;
 
@@ -95,6 +95,20 @@ function MessageBubble({ message, userInitial }) {
             {message.content || ""}
           </ReactMarkdown>
         </div>
+        {isAssistant && message.content && (
+          <button
+            className="speak-button"
+            type="button"
+            onClick={() => onSpeak(message.content)}
+            aria-label="Read this answer aloud"
+            title="Read this answer aloud"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 9v6h4l5 4V5L7 9H3Z" />
+              <path d="M16 9.5a4 4 0 0 1 0 5M18.5 7a7.5 7.5 0 0 1 0 10" />
+            </svg>
+          </button>
+        )}
         {isAssistant && message.source_type && message.source_type !== "news" && (
           <div className="source-label">Source type: {message.source_type}</div>
         )}
@@ -194,12 +208,19 @@ export default function App() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [listening, setListening] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading]);
+
+  useEffect(() => () => {
+    recognitionRef.current?.abort();
+    window.speechSynthesis?.cancel();
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -252,9 +273,7 @@ export default function App() {
     setConversations(history);
   }
 
-  async function handleSubmit(event) {
-    event?.preventDefault();
-    const question = input.trim();
+  async function sendMessage(question) {
     if (!question || loading) return;
 
     setInput("");
@@ -306,6 +325,75 @@ export default function App() {
     }
   }
 
+  function handleSubmit(event) {
+    event?.preventDefault();
+    void sendMessage(input.trim());
+  }
+
+  function speakAnswer(text) {
+    if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+      setError("Voice output is not supported in this browser.");
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.onerror = (event) => {
+      if (event.error !== "canceled" && event.error !== "interrupted") {
+        setError("The browser could not play this voice response.");
+      }
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function startVoiceInput() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setError("Voice input is not supported in this browser. Try a recent version of Chrome or Edge.");
+      return;
+    }
+    setError("");
+    setError("");
+    const recognition = new SpeechRecognition();
+    recognition.lang = navigator.language || "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0]?.transcript || "")
+        .join(" ")
+        .trim();
+      if (transcript) setInput(transcript);
+    };
+    recognition.onerror = (event) => {
+      setListening(false);
+      setError(
+        event.error === "not-allowed"
+          ? "Microphone access was denied. Allow microphone access in your browser and try again."
+          : event.error === "no-speech"
+            ? "No speech was detected. Please try again."
+            : `Voice input failed (${event.error}). Please try again.`
+      );
+    };
+    recognition.onend = () => {
+      setListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    setListening(true);
+    try {
+      recognition.start();
+    } catch (recognitionError) {
+      recognitionRef.current = null;
+      setListening(false);
+      setError(`Could not start voice input: ${recognitionError.message}`);
+    }
+  }
+
+  function stopVoiceInput() {
+    recognitionRef.current?.stop();
+  }
+
   function startNewChat() {
     if (loading) return;
     setConversationId(null);
@@ -339,6 +427,7 @@ export default function App() {
   }
 
   async function logout() {
+    recognitionRef.current?.abort();
     try {
       await apiRequest("/auth/logout", { token, method: "POST" });
     } catch (requestError) {
@@ -420,7 +509,12 @@ export default function App() {
         <section className="chat-area">
           <div className="messages" aria-live="polite">
             {messages.map((message, index) => (
-              <MessageBubble key={`${index}-${message.role}`} message={message} userInitial={userInitial} />
+              <MessageBubble
+                key={`${index}-${message.role}`}
+                message={message}
+                userInitial={userInitial}
+                onSpeak={speakAnswer}
+              />
             ))}
             {loading && (
               <div className="message-row assistant">
@@ -453,10 +547,23 @@ export default function App() {
               maxLength={4000}
               disabled={loading}
             />
+            <button
+              className={`voice-button ${listening ? "listening" : ""}`}
+              type="button"
+              onClick={listening ? stopVoiceInput : startVoiceInput}
+              disabled={loading}
+              aria-label={listening ? "Finish voice input" : "Start voice input"}
+              title={listening ? "Finish voice input" : "Speak your question"}
+            >
+              {listening ? "Listening..." : "🎙 Voice"}
+            </button>
             <button type="submit" disabled={loading || !input.trim()}>
               {loading ? "..." : "Send ↑"}
             </button>
           </form>
+          <p className="voice-hint">
+            Speak a question, then press Enter or Send. Use a reply&apos;s speaker icon to hear it.
+          </p>
           <p className="disclaimer">
             AI-generated answers may contain mistakes. Check the original sources for important or time-sensitive information.
           </p>

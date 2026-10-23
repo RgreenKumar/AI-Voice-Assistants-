@@ -280,6 +280,33 @@ button:disabled {
   border-color: #e0e2ff;
 }
 
+.speak-button {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: 7px 0 0 2px;
+  padding: 7px;
+  border: 1px solid #dfe4ef;
+  border-radius: 9px;
+  background: #fff;
+  color: #4f46e5;
+}
+
+.speak-button:hover {
+  background: #f0f2ff;
+}
+
+.speak-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
 .source-label {
   margin-top: 8px;
   color: #81899c;
@@ -394,8 +421,34 @@ button:disabled {
   font-weight: 650;
 }
 
+.composer .voice-button {
+  padding: 0 14px;
+  border: 1px solid #dfe4ef;
+  background: #fff;
+  color: #465168;
+  white-space: nowrap;
+}
+
+.composer .voice-button:hover:not(:disabled) {
+  background: #f5f6ff;
+  color: #4338ca;
+}
+
+.composer .voice-button.listening {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
 .composer button:hover:not(:disabled) {
   background: #4338ca;
+}
+
+.voice-hint {
+  margin: 9px 0 0;
+  color: #8a93a7;
+  font-size: 11px;
+  text-align: center;
 }
 
 .disclaimer {
@@ -442,6 +495,10 @@ button:disabled {
 
   .composer button {
     padding: 0 13px;
+  }
+
+  .composer .voice-button {
+    padding: 0 9px;
   }
 }
 

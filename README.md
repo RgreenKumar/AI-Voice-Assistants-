@@ -10,6 +10,7 @@ A web chatbot for general questions, recent news, and stable reference topics. U
 - Conversation history for contextual follow-up questions
 - Source links for retrieved articles
 - Markdown-formatted answers
+- Voice prompts with spoken answers in supported browsers
 - Account registration and login
 - Private, persistent chat history stored in MongoDB
 
@@ -66,6 +67,10 @@ npm run dev
 ```
 
 Open the local URL printed by Vite, usually `http://localhost:5173`.
+
+### Voice chat
+
+Select **Voice** beside the message box and speak your question. The recognized words are placed in the message box; press Enter or **Send** to submit. To hear an answer, select its speaker icon. Microphone access must be allowed in the browser. Voice input requires a browser with Web Speech recognition support (such as a recent Chrome or Edge); spoken answers use the browser's built-in speech synthesis.
 
 ## API endpoints
 
