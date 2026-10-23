@@ -1,6 +1,6 @@
 # NewsWiki Chatbot
 
-A web chatbot for general questions, recent news, and stable reference topics. The React frontend sends messages to a FastAPI backend, which uses Groq to route and answer questions, NewsAPI for current news, and Wikipedia for encyclopedia information.
+A web chatbot for general questions, recent news, and stable reference topics. Users can create an account, sign in, and keep their chat history private to their account. The React frontend sends messages to a FastAPI backend, which uses Groq to route and answer questions, NewsAPI for current news, Wikipedia for encyclopedia information, and MongoDB to store accounts and conversations.
 
 ## Features
 
@@ -10,6 +10,8 @@ A web chatbot for general questions, recent news, and stable reference topics. T
 - Conversation history for contextual follow-up questions
 - Source links for retrieved articles
 - Markdown-formatted answers
+- Account registration and login
+- Private, persistent chat history stored in MongoDB
 
 ## Requirements
 
@@ -17,6 +19,7 @@ A web chatbot for general questions, recent news, and stable reference topics. T
 - Node.js and npm
 - A Groq API key
 - A NewsAPI API key for current-news searches
+- A MongoDB connection string (local MongoDB or MongoDB Atlas)
 
 ## Configuration
 
@@ -25,6 +28,8 @@ Create `backend/.env` and add your API keys:
 ```env
 GROQ_API_KEY=your_groq_api_key
 NEWS_API_KEY=your_newsapi_api_key
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DATABASE=newwiki
 ```
 
 `GROQ_MODEL` is optional. The backend defaults to `openai/gpt-oss-20b`:
@@ -34,6 +39,7 @@ GROQ_MODEL=openai/gpt-oss-20b
 ```
 
 The Groq key is required for chatbot responses. The NewsAPI key is required for news searches; Wikipedia searches do not require a key.
+MongoDB is required for account registration, login, and saved chat history. For MongoDB Atlas, use the connection string provided by Atlas as `MONGODB_URI`. Keep this file private and never commit real keys or database credentials.
 
 ## Run locally on Windows
 
@@ -64,17 +70,25 @@ Open the local URL printed by Vite, usually `http://localhost:5173`.
 ## API endpoints
 
 - `GET /` — basic API status
-- `GET /api/health` — reports whether the Groq and NewsAPI keys are configured
-- `POST /api/chat` — accepts a message and optional conversation history
+- `GET /api/health` — reports whether Groq, NewsAPI, and MongoDB settings are configured
+- `POST /api/auth/register` and `POST /api/auth/login` — create an account or start a session
+- `GET /api/auth/me` and `POST /api/auth/logout` — inspect or end the current session
+- `GET /api/conversations` — list the signed-in user's saved chats
+- `GET /api/conversations/{conversation_id}` — load a saved chat owned by the signed-in user
+- `POST /api/chat` — send a message to a new or existing conversation
 
-Example request:
+Chat and conversation endpoints require the bearer token returned by login or registration. Passwords are stored as salted scrypt hashes, and session tokens are stored as hashes and expire after 30 days.
+
+Example chat request (include the bearer token from login or registration):
 
 ```json
 {
   "message": "Tell me about the history of the Indian Parliament",
-  "history": []
+  "conversation_id": null
 }
 ```
+
+Use the returned `conversation_id` in later requests to continue that chat. Omit it or set it to `null` to start another conversation.
 
 ## Frontend checks
 
@@ -90,12 +104,14 @@ npm run build
 ```text
 backend/
   main.py             FastAPI application and API models
+  auth.py             Password hashing and session authentication
+  database.py         MongoDB connection and indexes
   services.py         Question routing, retrieval, and answer generation
   requirements.txt    Python dependencies
 frontend/
   src/
     App.jsx           Chat interface and API requests
-    App.css           Chat interface styles
+    App.css           Chat, history, and login styles
   package.json        Frontend dependencies and scripts
 ```
 
