@@ -4,6 +4,5 @@ python-dotenv
 requests
 groq
 tzdata
-pymongo
-dnspython
-
+sqlalchemy
+mysql-connector-python
